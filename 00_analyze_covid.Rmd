@@ -1,0 +1,269 @@
+---
+title: "Análise de Dados COVID - PUC MDT Data Science 2020"
+author: Dan Reznik & Thomás Jagoda
+output: html_document
+---
+
+# Carrega bibliotecas
+
+```{r}
+library(tidyverse)
+library(fs)
+library(leaflet)
+library(lubridate)
+```
+
+# Lista arquivos no diretorio e dados
+
+Fonte: 
+
+```{r}
+dir_ls("data",regexp = "data/covid19")
+```
+
+# Analise arquivo deaths
+
+```{r}
+df_covid_deaths <- read_csv("data/covid19_deaths.csv")
+```
+
+Examina o data frame
+
+```{r}
+df_covid_deaths
+```
+
+Glimpse = examina lateralmente o data frame
+
+```{r}
+df_covid_deaths %>% glimpse
+```
+
+# Count Deaths per country
+
+Seleciona 3 colunas
+
+```{r}
+df_covid_deaths %>%
+  select(Date,`Country/Region`,Value)
+```
+
+Seleciona e depois renomeia colunas, salva num outro data frame
+
+```{r}
+df_covid_renamed <- df_covid_deaths %>%
+  select(Date,`Country/Region`,Value) %>%
+  rename(country=`Country/Region`,deaths=Value)
+df_covid_renamed
+```
+
+Quais paises listados
+
+```{r}
+df_covid_renamed %>%
+  count(country,sort=T) %>%
+  arrange(desc(country))
+```
+
+Filtra por Brasil
+
+```{r}
+df_covid_renamed %>%
+  filter(country=="Brazil")
+```
+
+Grafico de evolucao de mortes no brasil
+
+```{r}
+df_covid_renamed %>%
+  filter(country=="Brazil") %>%
+  ggplot(aes(Date,deaths)) +
+  geom_line(color="Red",size=3) +
+  labs(title="Mortes por COVID no Brasil")
+```
+
+Brasil x Argentina
+
+```{r}
+df_covid_renamed %>%
+  filter(country %in% c("Brazil","Argentina")) %>%
+  ggplot(aes(Date,deaths,group=country,color=country)) +
+  geom_line(size=3) +
+  labs(title="Mortes por COVID no Brasil e Argentina")
+```
+
+Brasil x Argentina, escala logaritmica
+
+```{r}
+df_covid_renamed %>%
+  filter(country %in% c("Brazil","Argentina","Italy")) %>%
+  ggplot(aes(Date,deaths,group=country,color=country)) +
+  geom_line(size=2) +
+    scale_y_log10() +
+  labs(title="Mortes por COVID no Brasil e Argentina")
+```
+
+Reportar mortes diarias.
+
+1) ordena brasil em ordem cronologica
+
+```{r}
+df_covid_renamed %>%
+  filter(country=="Brazil") %>%
+  arrange(Date)
+```
+
+2) Nova coluna com mortes no dia anterior
+
+```{r}
+df_covid_renamed %>%
+  filter(country=="Brazil") %>%
+  arrange(Date) %>%
+  mutate(deaths_previous_day=lag(deaths))
+```
+
+3) Nova coluna com diferenca de mortes entre dia atual e anterior
+
+```{r}
+df_covid_daily_brazil <- df_covid_renamed %>%
+  filter(country=="Brazil") %>%
+  arrange(Date) %>%
+  mutate(deaths_previous_day=lag(deaths),
+         # diferença
+         deaths_daily=deaths-deaths_previous_day)
+df_covid_daily_brazil
+```
+
+Plota mortes diarias brasil
+
+```{r}
+df_covid_daily_brazil %>%
+  filter(Date>=ymd("20200301")) %>%
+  ggplot(aes(Date,deaths_daily)) +
+  geom_line() +
+  geom_smooth() +
+  labs(title="Mortes Diárias por COVID no Brasil")
+```
+
+Mostra tendencia
+
+```{r}
+df_covid_daily_brazil %>%
+  ggplot(aes(Date,deaths_daily)) +
+  geom_line() +
+  geom_smooth() +
+  labs(title="Mortes Diárias por COVID no Brasil")
+```
+
+---
+
+# Reportar países com mais mortes 
+
+Qual 'e a ultima data de cada pais
+
+```{r}
+df_covid_renamed %>%
+  group_by(country) %>%
+  top_n(1,Date)
+```
+
+Certificar q todas ultimas datas sao iguais
+
+```{r}
+df_covid_renamed %>%
+  group_by(country) %>%
+  top_n(1,Date) %>%
+  ungroup() %>%
+  count(Date,sort=T)
+```
+
+Quais sao as ultimas datas de cada pais
+
+```{r}
+df_covid_last_date <- df_covid_renamed %>%
+  group_by(country,Date) %>%
+  summarize(deaths=sum(deaths)) %>% # somando Region and Sub-Region
+  group_by(country) %>%
+  top_n(1,Date) %>%
+  ungroup() %>%
+  arrange(desc(deaths))
+df_covid_last_date
+```
+
+Mostra topo 8
+
+```{r}
+df_covid_last_date %>%
+  head(8)
+```
+
+Mostra bottom 8
+
+```{r}
+df_covid_last_date %>%
+  tail(8)
+```
+
+
+Desenha top 8 paises
+
+```{r}
+df_covid_last_date %>%
+  head(8) %>%
+  mutate(country=country%>%fct_inorder()%>%fct_rev()) %>%
+  ggplot(aes(country,deaths,fill=country)) +
+  geom_col() +
+  labs(x="país",y="mortes",title="COVID deaths") +
+  theme(legend.position = "none") +
+  coord_flip()
+```
+
+STOP
+
+# Exercicios
+
+## Parte 1: Executar os mesmos passos acima
+
+STOP
+
+## Parte 2: Criar os graficos acima com os casos confirmados:
+
+1) casos italia vs data
+2) casos USA,italia vs data
+3) casos diários italia
+4) top 8 paises com casos totais
+
+```{r message = FALSE}
+df_covid_confirmed <- read_csv("data/covid19_confirmed.csv")
+```
+
+# Mapa COVID de deaths
+
+Preparo de dados
+
+```{r}
+# obtem a ultima data
+last_date <- max(df_covid_renamed$Date)
+
+
+df_covid_map <- df_covid_deaths %>%
+  rename(country=`Country/Region`) %>%
+  filter(Date==last_date) %>%
+  group_by(country) %>%
+  summarize(count=sum(Value),lat=first(Lat),lon=first(Long))
+  
+pops <- str_glue("<b> {df_covid_map$country} </b> <br/>
+                 Contagem: {df_covid_map$count}")
+```
+
+Display map
+
+```{r}
+df_covid_map %>%
+  leaflet() %>%
+  addTiles() %>%
+  addCircles(radius=~sqrt(count)*2000, weight=1, popup=~pops)
+```
+
+
+
