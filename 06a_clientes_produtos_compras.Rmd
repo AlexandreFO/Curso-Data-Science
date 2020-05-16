@@ -1,0 +1,408 @@
+---
+title: "Aula 06 - PUC"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(fs)
+```
+
+
+```{r}
+dir_ls("data")
+```
+
+# Clientes
+
+```{r}
+df_clientes <- read_csv2("data/clientes_final.csv")
+df_clientes %>% glimpse
+```
+
+Estudo frequencial de sexo
+
+```{r}
+df_clientes %>% count(Sexo)
+```
+
+Frequencias de Sobrenomes
+
+```{r}
+df_clientes %>%
+  count(Sobrenome,sort=T)
+```
+
+Ordenar do mais curto ao mais longo
+
+```{r}
+df_clientes %>%
+  count(Sobrenome,sort=T) %>%
+  mutate(Sobrenome_chars=str_length(Sobrenome)) %>%
+  arrange(Sobrenome_chars)
+```
+
+Clientes por Cidade, Estado
+
+```{r}
+df_clientes %>% count(cidade,estado,sort=T)
+```
+
+Clientes por Cidade, Estado
+
+```{r}
+df_clientes %>%
+  count(cidade,estado,sort=T) %>%
+  head(8) %>%
+  mutate(cidade_estado=str_c(cidade,", ",estado)) %>%
+  # para ordenar
+  # mutate(cidade_estado=cidade_estado %>% fct_inorder %>% fct_rev) %>%
+  ggplot(aes(cidade_estado,n,fill=cidade_estado)) +
+  geom_col() +
+  coord_flip() +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette="Set1")
+```
+
+# Produtos
+
+```{r}
+df_produtos <- read_csv2("data/produtos_final.csv")
+df_produtos %>% glimpse
+```
+
+Estudo frequencial de Assunto
+
+```{r}
+df_produtos %>% count(Assunto,sort=T)
+```
+
+Grafa top assuntos
+
+```{r}
+df_produtos %>%
+  count(Assunto,sort=T) %>%
+  head(8) %>%
+  # mutate(Assunto=fct_inorder(Assunto)%>%fct_rev) %>%
+  ggplot(aes(Assunto,n,fill=Assunto)) +
+  geom_col() +
+  coord_flip() +
+  theme(legend.position = "none")
+```
+
+Estudo de valores
+
+```{r}
+df_produtos$Valor %>% head(10)
+```
+
+Tipo da coluna é string
+
+```{r}
+df_produtos$Valor %>% class
+```
+
+Vamos transforma-la em número
+
+```{r}
+df_produtos$Valor %>%
+  head(10) %>%
+  str_remove(fixed("R$ "))
+```
+
+Transforma virgula em ponto
+
+```{r}
+df_produtos$Valor %>%
+  head(10) %>%
+  str_sub(start=4) %>%
+  str_replace(",",".")
+```
+
+Maneira alterantiva: remover um substring
+
+```{r}
+df_produtos$Valor %>%
+  head(10) %>%
+  str_remove("R\\$ ") %>%
+  str_replace(",",".")
+```
+
+Converte para numero
+
+```{r}
+df_produtos$Valor %>%
+  head(10) %>%
+  str_remove("R\\$ ") %>%
+  str_replace(",",".") %>%
+  as.double()
+```
+
+Coloca funcionalidade de conversão numa função
+
+```{r}
+converte_valor <- function(valor) {
+  valor %>%
+    str_remove("R\\$ ") %>%
+    str_replace(",",".") %>%
+    as.double()
+}
+```
+
+
+Cria dataframe com uma nova coluna
+
+```{r}
+df_produtos_valores <- df_produtos %>%
+  # select(Titulo,Valor) %>%
+  mutate(ValorNum = converte_valor(Valor))
+df_produtos_valores %>% glimpse
+```
+
+Grafa distribuição (histograma) de valores
+
+```{r}
+df_produtos_valores %>%
+  ggplot(aes(ValorNum)) +
+  geom_histogram(color="black",fill="blue")
+```
+
+Qual o valor médio?
+
+```{r}
+valor_medio <- df_produtos_valores$ValorNum %>% mean
+valor_medio
+```
+
+Adiciona linha média ao histograma
+
+```{r}
+df_produtos_valores %>%
+  ggplot(aes(ValorNum)) +
+  geom_histogram(color="black",fill="blue") +
+  geom_vline(xintercept = valor_medio,color="red",size=1.5,linetype="longdash")
+```
+
+# Compras
+
+```{r}
+df_compras <- read_csv2("data/compras_final.csv")
+df_compras %>% glimpse
+```
+
+Sumariza o data frame
+
+```{r}
+summary(df_compras)
+```
+
+Conta compras por canal
+
+```{r}
+df_compras %>%
+  ggplot(aes(canal,fill=canal)) +
+  geom_bar() +
+  theme(legend.position = "none")
+```
+
+
+# Cruzamentos e Faceteamentos
+
+## Compras por faixas de idade por canal
+
+Vamos introduzir "faixas de idade" com "cut"
+
+```{r}
+df_clientes_faixas <- df_clientes %>%
+  mutate(faixa_etaria=cut(idade,breaks=seq(0,100,10)))
+df_clientes_faixas %>% select(Nome,Sobrenome,idade,faixa_etaria)
+```
+
+Qual a distribuição em faixas de idade?
+
+```{r}
+df_clientes_faixas %>%
+  ggplot(aes(faixa_etaria,fill=faixa_etaria)) +
+  geom_bar(color="black") # + 
+  # theme(legend.position = "none")
+```
+
+Qual o valor comprado por cada faixa etaria: junta as tabelas com left_join
+
+```{r}
+df_compras %>%
+  left_join(df_clientes_faixas)
+```
+
+Faz um join mais "esbelto"
+
+```{r}
+df_compras %>%
+  select(id_compra,id_cliente,id_produto) %>%
+  left_join(df_clientes_faixas %>% select(id_cliente,faixa_etaria))
+```
+
+Junta com o id do produto e o valor
+
+```{r}
+df_compras_faixa_etaria <- df_compras %>%
+  select(id_compra,data,id_cliente,id_produto) %>%
+  left_join(df_clientes_faixas %>% select(id_cliente,faixa_etaria)) %>%
+  left_join(df_produtos_valores %>% select(id_produto,ValorNum))
+df_compras_faixa_etaria
+```
+
+Agrupa e soma valores por faixa etária
+
+```{r}
+df_compras_faixa_etaria_totais <- df_compras_faixa_etaria %>%
+  group_by(faixa_etaria) %>%
+  summarize(ValorTotal=sum(ValorNum))
+df_compras_faixa_etaria_totais
+```
+
+Grafa compras por faixas etarias
+
+```{r}
+df_compras_faixa_etaria_totais %>%
+  ggplot(aes(faixa_etaria,ValorTotal,fill=faixa_etaria)) +
+  geom_col() +
+  labs(title="Valor de compra por faixa etária 2019") +
+  theme(legend.position = "none")
+```
+
+Indica trimestre de cada compra
+
+```{r}
+df_compras_faixa_etaria %>%
+  mutate(trimestre=quarter(data))
+```
+
+Reordena colunas
+
+```{r}
+df_compras_faixa_etaria %>%
+  mutate(trimestre=quarter(data)) %>%
+  select(id_compra,data,trimestre,everything())
+```
+
+Calcula subtotais trimestrais
+
+```{r}
+df_compras_faixa_etaria_por_trimestre <- df_compras_faixa_etaria %>%
+  mutate(trimestre=quarter(data)) %>%
+  select(id_compra,data,trimestre,everything()) %>%
+  group_by(faixa_etaria,trimestre) %>%
+  summarize(ValorTotal=sum(ValorNum))
+df_compras_faixa_etaria_por_trimestre
+```
+
+Grafa com Facets
+
+```{r}
+df_compras_faixa_etaria_por_trimestre %>%
+  ggplot(aes(faixa_etaria,ValorTotal,fill=faixa_etaria)) +
+  geom_col() +
+  facet_wrap(nrow=2,ncol=2,facets=vars(trimestre),
+             labeller=labeller(trimestre=c(`1`="1º trim",
+                                           `2`="2º trim",
+                                           `3`="3º trim",
+                                           `4`="4º trim"))) +
+  labs(title="Valor de compra por faixa etária 2019") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 30,vjust = 1,hjust=.7))
+```
+
+## Assuntos mais comuns por sexo
+
+Join compras + clientes + produtos (muito largo)
+
+```{r}
+df_compras %>%
+  left_join(df_clientes) %>%
+  left_join(df_produtos)
+```
+
+Selectiona só Assunto e Sexo
+
+```{r}
+df_compras %>%
+  left_join(df_clientes) %>%
+  left_join(df_produtos) %>%
+  select(Assunto,Sexo)
+```
+
+Estudo frequencial de Assunto, Sexo por
+
+```{r}
+df_compras %>%
+  left_join(df_clientes) %>%
+  left_join(df_produtos) %>%
+  select(Assunto,Sexo) %>%
+  count(Assunto,Sexo,sort=T)
+```
+
+Apos o estudo frequencial, reportar os top Assuntos em cada sexo (top_n)
+
+```{r}
+df_compras_top_assuntos_por_sexo <- df_compras %>%
+  left_join(df_clientes) %>%
+  left_join(df_produtos) %>%
+  select(Assunto,Sexo) %>%
+  count(Assunto,Sexo,sort=T) %>%
+  group_by(Sexo) %>%
+  top_n(5,n) %>%
+  arrange(Sexo)
+df_compras_top_assuntos_por_sexo
+```
+
+Mostra resultado faceteado
+
+```{r}
+df_compras_top_assuntos_por_sexo %>%
+  mutate(Assunto = Assunto %>% fct_inorder %>% fct_rev) %>%
+  ggplot(aes(Assunto,n,fill=Assunto)) +
+  geom_col() +
+  facet_wrap(~Sexo,
+             labeller=labeller(Sexo=c(`F`="Mulheres",
+                                      `M`="Homens"))) +
+  coord_flip() +
+  theme(legend.position = "none")
+```
+
+# Exercícios 1 (45 min)
+
+1) Tabelas
+
+1.1) Quais são os 8 títulos de livros mais longos? E os 10 mais curtos
+1.2) Quais são os 8 títulos mais comprados
+1.3) Quais são os 8 títulos q mais geraram receita em 2019?
+1.4) Para clientes entre 20 e 60 anos de idade, qual o total de vendas por sexo?
+
+2) Graficos Simples
+ 
+2.1) 8 clientes com maior consumo em 2019
+2.2) 6 Estados com maior número de livros vendidos
+2.3) 6 Estados com maior receita de vendas
+2.4) 6 titulos q geraram a maior receita
+
+# Exercícios 2 (45 min)
+
+3) Faceteamentos
+
+3.1) total de vendas por sexo, facetear por trimestre (4)
+3.2) 4 Assuntos mais comuns, facetear por age group (10)
+3.3) canais mais comuns, facetear por sexo (2)
+3.4) 5 titulos mais comprados por estado
+
+4) Join com nova tabela
+
+4.1) Challenge: usando a tabela produtos_custos, reportar o lucro total em 2019.
+4.2) salvar resultado como "lucro_2019.csv"
+4.3) Reportar o lucro total por estado.
+4.4) salvar como "lucro_por_estado_2019.csv"
+
+5) Outros
+
+5.1) Qual o nome+sobrenome do cliente com maior consumo em cada estado? Listar tb o consumo

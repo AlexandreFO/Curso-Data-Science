@@ -1,0 +1,129 @@
+---
+title: "PUC MDT 2020 -- Dashboard -- Compras de Livros"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+```
+
+
+```{r preparo, include=FALSE}
+converte_valor <- function(valor) {
+  valor %>%
+    str_remove("R\\$ ") %>%
+    str_replace(",",".") %>%
+    as.double()
+}
+
+df_clientes <- read_csv2("data/clientes_final.csv")
+
+df_produtos <- read_csv2("data/produtos_final.csv")
+
+df_compras <- read_csv2("data/compras_final.csv")
+
+
+df_produtos_valores <- df_produtos %>%
+  # select(Titulo,Valor) %>%
+  mutate(ValorNum = converte_valor(Valor))
+
+
+valor_medio <- df_produtos_valores$ValorNum %>% mean
+
+df_clientes_faixas <- df_clientes %>%
+  mutate(faixa_etaria=cut(idade,breaks=seq(0,100,10)))
+
+
+df_compras_faixa_etaria <- df_compras %>%
+  select(id_compra,data,id_cliente,id_produto) %>%
+  left_join(df_clientes_faixas %>% select(id_cliente,faixa_etaria)) %>%
+  left_join(df_produtos_valores %>% select(id_produto,ValorNum))
+
+
+
+df_compras_faixa_etaria_totais <- df_compras_faixa_etaria %>%
+  group_by(faixa_etaria) %>%
+  summarize(ValorTotal=sum(ValorNum))
+
+df_compras_top_assuntos_por_sexo <- df_compras %>%
+  left_join(df_clientes) %>%
+  left_join(df_produtos) %>%
+  select(Assunto,Sexo) %>%
+  count(Assunto,Sexo,sort=T) %>%
+  group_by(Sexo) %>%
+  top_n(5,n) %>%
+  arrange(Sexo)
+```
+
+
+Row {data-height=500}
+-------------------------------------
+
+### Ranking de Assuntos
+
+```{r}
+df_produtos %>%
+  count(Assunto,sort=T) %>%
+  head(8) %>%
+  # quirk necessario
+  mutate(Assunto=fct_inorder(Assunto)%>%fct_rev) %>%
+  ggplot(aes(Assunto,n,fill=Assunto)) +
+  geom_col(width=0.6) +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(y="Frequência")
+
+ggplotly()
+```
+
+### Ranking de Assuntos por Sexo
+
+```{r}
+p <- df_compras_top_assuntos_por_sexo %>%
+  ungroup() %>%
+  mutate(Assunto = Assunto %>% fct_inorder %>% fct_rev) %>%
+  ggplot(aes(Assunto,n,fill=Sexo, group=Sexo)) +
+  geom_col(width=0.6, position = "dodge") +
+  labs(y="Frequência") +
+  coord_flip() +
+  theme_minimal()
+ggplotly(p)
+```
+
+Row {data-height=500}
+-------------------------------------
+   
+### Distribuição de Preços
+
+```{r}
+df_produtos_valores %>%
+  ggplot(aes(ValorNum)) +
+  geom_histogram(color="black",fill="lightblue") +
+  geom_vline(xintercept = valor_medio,color="red",size=1.5,linetype="longdash") +
+  labs(y="Frequência", x="Preço do Produto") +
+  theme_minimal()
+
+ggplotly()
+```
+    
+### Arrecadação por Faixa Etária em 2019
+
+```{r}
+df_compras_faixa_etaria_totais %>%
+  ggplot(aes(faixa_etaria,ValorTotal,fill=faixa_etaria)) +
+  geom_col(width=0.6) +
+  theme_minimal() +
+  ylim(0,1e5) +
+  labs(x="Faixa Etária", y="Valor Total de Compra") +
+  theme(legend.position = "none")
+
+ggplotly()
+```
+
+
+
