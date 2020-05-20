@@ -626,9 +626,120 @@ df_compras_faixa_etaria%>% count(id_produto,sort=T) %>%
 3) Faceteamentos
 
 3.1) total de vendas por sexo, facetear por trimestre (4)
+
+```{r}
+
+ df_compras_faixa_etaria %>%
+  mutate(trimestre=quarter(data),
+         mes=month(data)) %>%
+  select(id_compra,data,trimestre,mes,everything()) %>%
+  group_by(Sexo,trimestre) %>%
+  summarize(ValorTotal=sum(ValorNum))%>%
+  
+  ggplot(aes(Sexo,ValorTotal,fill=Sexo)) +
+  geom_col() +
+  facet_wrap(nrow=2,ncol=2,facets=vars(trimestre),
+             labeller=labeller(trimestre=c(`1`="1º trim",
+                                           `2`="2º trim",
+                                           `3`="3º trim",
+                                           `4`="4º trim"))) +
+  labs(title="Valor de compra por Sexo 2019") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 30,vjust = 1,hjust=.7))
+```
+
+
+
+
+
+
 3.2) 4 Assuntos mais comuns, facetear por age group (10)
+
+
+```{r}
+
+# iDENTIFICA OS 4 PRINCIPAIS ASSUNTOS
+
+  maiscomuns <- df_produtos %>%
+  count(Assunto,sort=T) %>%
+  head(4) %>% 
+  select(Assunto)
+
+# SUMARIZA POR ASSUNTO E FAIXA ETARIA
+  
+
+  df_compras_faixa_etaria %>%
+  left_join(df_produtos) %>%
+  mutate(trimestre=quarter(data),
+         mes=month(data)) %>%
+  select(id_compra,data,trimestre,mes,everything()) %>%
+  filter(Assunto %in% c(maiscomuns$Assunto)) %>%  
+  group_by(Assunto,faixa_etaria) %>%
+  summarize(ValorTotal=sum(ValorNum)) %>%
+    
+# GERA O GRÁFICO
+  
+  ggplot(aes(Assunto,ValorTotal,fill=Assunto)) +
+  geom_col() +
+  facet_wrap(nrow=3,ncol=3,facets=vars(faixa_etaria),
+             labeller=labeller(faixa_etaria=c(`(10,20]`="10 a 20",
+                                           `(20,30]`="20 a 30",
+                                           `(30,40]`="30 a 40",
+                                           `(40,50]`="40 a 50",
+                                           `(50,60]`="50 a 60",
+                                           `(60,70]`="60 a 70",
+                                           `(70,80]`="70 a 80",
+                                           `(80,90]`="80 a 90"))) +
+  labs(title="Assuntos mais vendidos por faixa etaria 2019") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 30,vjust = 1,hjust=.7))
+```
+
+
+
 3.3) canais mais comuns, facetear por sexo (2)
+
+```{r}
+
+  df_compras%>%
+  left_join(df_clientes) %>%
+  left_join(df_produtos_valores) %>%  
+  select(canal,Sexo,ValorNum) %>%
+  group_by(canal,Sexo) %>%
+  summarize(ValorTotal=sum(ValorNum)) %>%
+    
+# GERA O GRÁFICO
+  
+  ggplot(aes(canal,ValorTotal,fill=canal)) +
+  geom_col() +
+  facet_wrap(nrow=3,ncol=3,facets=vars(Sexo),
+             labeller=labeller(faixa_etaria=c(`F`="F",
+                                           `M`="M"))) +
+  labs(title="Canais de Vendas por Sexo 2019") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 30,vjust = 1,hjust=.7))
+```
+
+
+
 3.4) 5 titulos mais comprados por estado
+
+```{r}
+
+  df_compras%>%
+  left_join(df_clientes) %>%
+  left_join(df_produtos_valores) %>%  
+  select(Titulo,estado,ValorNum) %>%
+  group_by(estado,Titulo) %>%
+  summarize(ValorTotal=sum(ValorNum)) %>%
+  arrange(estado,desc(ValorTotal)) %>%
+  top_n(5)
+    
+
+```
+
+
+
 
 4) Join com nova tabela
 
