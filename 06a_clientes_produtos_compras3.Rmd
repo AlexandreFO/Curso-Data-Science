@@ -744,10 +744,96 @@ df_compras_faixa_etaria%>% count(id_produto,sort=T) %>%
 4) Join com nova tabela
 
 4.1) Challenge: usando a tabela produtos_custos, reportar o lucro total em 2019.
+
+Carga do Data Frame de Lucro
+
+```{r}
+
+df_produto_custos <- read.csv("/cloud/project/data/produto_custos.csv")
+df_produtos_custos_valores <- df_produto_custos %>%
+  mutate(ValorBruto = converte_valor(ValorBruto)) 
+
+```
+
+
+```{r}
+
+# Sumarizacao por estado
+
+df_compras_faixa_etaria %>%
+left_join(df_clientes) %>%
+left_join(df_produtos_custos_valores) %>%
+select(estado,ValorBruto)  %>% 
+group_by(estado) %>%
+summarize(Valor_Bruto=sum(ValorBruto))  
+ 
+lucrototal <- sum(df_produtos_custos_valores$ValorBruto)
+lucrototal
+
+
+```
+
+
+
+
 4.2) salvar resultado como "lucro_2019.csv"
+
+
+```{r}
+ano_ <- 2019
+lucro <- lucrototal
+tabela <- data.frame(Ano = ano_, LucroAnual = lucro)
+write.csv(tabela, "/cloud/project/data/lucro_2019.csv", row.names = FALSE)
+
+```
+
+
 4.3) Reportar o lucro total por estado.
+
+```{r}
+
+lucro_por_estados <- df_compras_faixa_etaria %>%
+left_join(df_clientes) %>%
+left_join(df_produtos_custos_valores) %>%
+select(estado,ValorBruto)  %>% 
+group_by(estado) %>%
+summarize(Valor_Bruto=sum(ValorBruto)) 
+
+lucro_por_estados
+
+```
+
+
+
 4.4) salvar como "lucro_por_estado_2019.csv"
+
+```{r}
+
+write.csv(lucro_por_estados, "/cloud/project/data/lucro_por_estados_2019.csv", row.names = FALSE)
+
+```
+
 
 5) Outros
 
 5.1) Qual o nome+sobrenome do cliente com maior consumo em cada estado? Listar tb o consumo
+
+```{r}
+
+  df_compras%>%
+  left_join(df_clientes) %>%
+  left_join(df_produtos_valores) %>%  
+  select(id_cliente,estado,ValorNum) %>%
+  group_by(estado,id_cliente) %>%
+  summarize(ValorTotal=sum(ValorNum)) %>%
+  arrange(estado,desc(ValorTotal)) %>%
+  top_n(1)
+  
+    
+
+```
+
+
+
+
+
