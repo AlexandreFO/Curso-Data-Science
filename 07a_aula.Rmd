@@ -1,0 +1,361 @@
+---
+title: "PUC MDT - Data Science - Aula 07"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+# Lê Dom Casmurro
+
+Le arquivo com `read_lines` num vetor de strings
+
+```{r}
+livro <- read_lines("data/machado_de_assis_dom_casmurro.txt")
+```
+
+qual o tipo de `livro`? (vetor de strings)
+
+```{r}
+livro %>% class
+```
+
+quantos elementos tem o vetor?
+
+```{r}
+livro %>% length
+```
+
+olhando as 20 primeiras linhas
+
+```{r}
+livro[1:20]
+```
+
+Quais linhas sao vazias
+
+```{r}
+livro[1:20]==""
+```
+
+Quantas linhas vazias este livro tem?
+
+```{r}
+sum(livro=="")
+```
+
+Queremos pular o "preâmbulo", começando na linha que contém "I". Comando `which` acha esta linha.
+
+```{r}
+which(livro=="I")
+```
+
+A palavra "FIM" indica o fim do livro. Ache a linha usando `which`
+
+```{r}
+which(livro=="FIM")
+```
+
+Cortar o preambulo, e as linhas à partir de "FIM" usando subsetting `[a:b]`
+
+```{r}
+livro_cortado <- livro[55:8580]
+livro_cortado[1:5]
+```
+
+salva de volta para um arquivo
+
+```{r}
+livro_cortado %>% write_lines("data_out/livro_cortado.txt")
+```
+
+Notar q todos os capitulos começam com um algarismo romano: I, II, III, .... CXLVIII (?)
+
+Enumera os capitulos. Reportar linhas que contém caracteres romanos
+
+```{r}
+livro_cortado[str_detect(livro_cortado,"^[IVXLC]+\\.?$")]
+```
+
+Quais as linhas que contem os titulos acima (Algorismos Romanos com o ponto final . )
+
+```{r}
+which(livro_cortado %>% str_detect("^[IVXLC]+\\.?$"))
+```
+
+O titulo de um capitulo aparece 2 linhas após o número romano. Por exemplo:
+
+```{r}
+livro_cortado[218]
+```
+
+```{r}
+livro_cortado[220]
+```
+
+Vamos fazer um data frame com uma coluna do numero romano do capitulo e outra com o titulo
+
+atribui linhas de capitulo
+
+```{r}
+linhas_de_capitulo <- which(livro_cortado %>% str_detect("^[IVXLC]+\\.?$"))
+length(linhas_de_capitulo)
+```
+
+Cria o dataframe, com titulos pulando duas linhas
+
+```{r}
+df_capitulos <- tibble(capitulo=livro_cortado[linhas_de_capitulo],
+                       titulo=livro_cortado[linhas_de_capitulo+2])
+df_capitulos
+```
+
+Adiciona numero ordinal à esquerda
+
+```{r}
+df_capitulos %>%
+  mutate(capitulo_ordinal=row_number())
+```
+
+Coloca como primeira coluna
+
+```{r}
+df_capitulos_ordinal <- df_capitulos %>%
+  mutate(capitulo_ordinal=row_number()) %>%
+  select(capitulo_ordinal,everything())
+df_capitulos_ordinal %>% glimpse
+```
+
+Salva tabela de capitulos
+
+```{r}
+df_capitulos_ordinal %>% write_csv("data_out/capitulos_ordinal.csv")
+```
+
+# Exercicios I
+
+# Estudos frequenciais
+
+Tokenização de uma frase
+
+```{r}
+"o Rio de Janeiro continua lindo" %>% str_split(" ")
+```
+
+Tokenização de 3 frases
+
+```{r}
+c("o   Rio de Janeiro continua lindo",
+  "São Paulo é     a terra da garôa",
+  "a garoa de janeiro aduba   a terra") %>%
+  str_split(" ")
+```
+
+Permite espaços multiplos
+
+```{r}
+c("o   Rio de Janeiro continua lindo",
+  "São Paulo é     a terra da garôa",
+  "a garoa de janeiro aduba   a terra") %>%
+  str_split(" +")
+```
+
+Atribui o resultado
+
+Permite espaços multiplos
+
+```{r}
+split_frases <- c("o   Rio de Janeiro continua lindo",
+                  "São Paulo é     a terra da garôa",
+                  "a garoa de janeiro aduba   a terra") %>%
+  str_split(" +")
+```
+
+Qual o tipo de split_frases?
+
+```{r}
+split_frases %>% class
+```
+
+Quantos elementos tem esta lista?
+
+```{r}
+split_frases %>% length
+split_frases[[1]] %>% length
+
+
+```
+
+Quantos tokens tem cada elemento da lista? Ou seja quantas palavras tem em cada frase?
+
+```{r}
+split_frases %>% map_int(length)
+```
+
+Quantas palavras no total?
+
+```{r}
+split_frases %>% map_int(length) %>% sum
+```
+
+Vamos juntar as palavras numa só frase
+
+```{r}
+split_frases %>% unlist
+```
+
+Estudo frequencial: cria data frame com as palavras e o numero de ordem delas
+
+```{r}
+tibble(palavra=split_frases%>%unlist,
+       indice=1:length(palavra)) 
+```
+
+Atribui
+
+```{r}
+df_palavras <- tibble(palavra=split_frases%>%unlist,
+       indice=1:length(palavra)) %>%
+  select(indice,palavra)
+df_palavras
+```
+
+Ordena por frequência
+
+```{r}
+df_palavras %>%
+  count(palavra,sort=T)
+```
+
+Ordena por frequência, mas primeiro converte para minusculas
+
+```{r}
+df_palavras %>%
+  mutate(palavra=str_to_lower(palavra)) %>%
+  count(palavra,sort=T)
+```
+
+Ordena por frequência, retirando os acentos
+
+```{r}
+df_palavras %>%
+  mutate(palavra=str_to_lower(palavra)%>%iconv(to="ASCII//TRANSLIT")) %>%
+  count(palavra,sort=T)
+```
+
+Fazer gráfico das 5 palavras mais frequentes
+
+```{r}
+df_palavras %>%
+  mutate(palavra=str_to_lower(palavra)%>%iconv(to="ASCII//TRANSLIT")) %>%
+  count(palavra,sort=T) %>%
+  head(6) %>%
+  mutate(palavra=palavra %>% fct_inorder %>% fct_rev) %>%
+  ggplot(aes(palavra,n,fill=palavra)) +
+  geom_col() +
+  coord_flip() +
+  theme(legend.position="none")
+```
+
+# Exercicios II
+
+# Analisa Capitulo XXIII
+
+Que linha começa
+
+```{r}
+which(livro %>% str_detect("^XXIII$"))
+```
+
+Que linha acaba
+
+```{r}
+which(livro %>% str_detect("^XXIV$"))
+```
+
+Pula titulo
+
+```{r}
+livro_cap23 <- livro[1516:1555]
+length(livro_cap23)
+```
+
+Quantas linhas vazias?
+
+```{r}
+sum(livro_cap23=="")
+```
+
+Tokeniza, notar que podem haver linhas vazias, virgulas, acentuação, e outros caracteres, etc
+
+```{r}
+livro_cap23 %>% str_split(" +") %>% unlist
+```
+
+Split por uma sequencia de um ou mais caracteres q nao sejam letras minusculas. Note que ainda contem vazios
+
+```{r}
+livro_cap23 %>% str_to_lower %>% str_split("[^[:alpha:]+]") %>% unlist
+```
+
+Tira atribui
+
+```{r}
+palavras_cap23_all <- livro_cap23 %>%
+  str_to_lower %>%
+  str_split("[^[:alpha:]]+") %>%
+  unlist 
+palavras_cap23_all %>% head(30)
+```
+
+Quais vazios?
+
+```{r}
+(palavras_cap23_all=="") %>% head(30)
+```
+
+Cria vetor sem vazios
+
+```{r}
+palavras_cap23 <- palavras_cap23_all[palavras_cap23_all!=""]
+palavras_cap23 %>% head(30)
+```
+
+Cria dataframe com as palavras do 23o capitulo
+
+```{r}
+tibble(palavra=palavras_cap23,indice=1:length(palavras_cap23)) %>%
+  count(palavra,sort=T)
+```
+
+Gera dataframe de frequencias
+
+```{r}
+df_cap23 <- tibble(palavra=palavras_cap23) %>%
+  count(palavra,sort=T)
+df_cap23
+```
+
+
+Grafa as 6 mais frequentes
+
+```{r}
+df_cap23 %>%
+  head(6) %>%
+  mutate(palavra=palavra %>% fct_inorder %>% fct_rev) %>%
+  ggplot(aes(palavra,n,fill=palavra)) +
+  geom_col() +
+  coord_flip() +
+  labs(title="Freq Cap XXIII") +
+  theme(legend.position="none")
+```
+
+Gera wordcloud
+
+```{r}
+wordcloud2::wordcloud2(df_cap23)
+```
+
+
+# Exercicios III

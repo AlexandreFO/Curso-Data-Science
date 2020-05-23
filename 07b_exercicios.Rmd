@@ -1,0 +1,152 @@
+---
+title: "PUC MDT - Data Science - Exercicios Aula 07"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+# Exercicios 1
+
+Le arquivo com `read_lines` num vetor de strings
+
+```{r}
+livro <- read_lines("data/machado_de_assis_dom_casmurro.txt")
+```
+
+1.1) Quantas linhas tem este arquivo
+
+```{r}
+livro %>% length
+```
+
+
+1.2) Usando o R (nao editar a mão!) cortar livro só mantendo os capitulos V até X.
+
+```{r}
+linha_capitulo_V <- which(livro=="V")
+linha_capitulo_X <- which(livro=="XI")
+cortado_V_X <- livro[linha_capitulo_V:linha_capitulo_X-1]
+```
+
+
+1.3) Quantas linhas tem este novo livro cortado?
+
+```{r}
+cortado_V_X %>% length
+```
+
+
+1.4) Quantas linhas vazias contém o livro cortado?
+
+```{r}
+sum((cortado_V_X==""))
+
+```
+
+
+
+
+1.5) Em qual linha aparece a a palavra "guilhotina"? (usar which + str_detect)
+
+```{r}
+which(cortado_V_X %>% str_detect("[gG]uilhotina"))
+```
+
+
+1.6) Salvar resultado em "data_out/livro_cortado_V_a_X.csv"
+
+
+```{r}
+tibble(LINHA=cortado_V_X)%>% write_csv("data_out/livro_cortado_V_a_X.csv")
+```
+
+# Execicios 2
+
+considerando
+
+```{r}
+minhas_frases <- c("Tão depressa vi desapparecer o  aggregado no corredor deixei o",
+                   "esconderijo e   corri á varanda do fundo",
+                   "Não quiz saber de lagrimas nem da  causa que",
+                   "as fazia verter       a minha mãe",
+                   "A causa  eram provavelmente   os seus projectos ecclesiasticos",
+                   "e a occasião destes é a  que vou dizer")
+```
+
+2.1) reportar o numero de frases
+
+```{r}
+
+minhas_frases %>% length()
+
+```
+
+
+
+
+
+2.2) reportar o numero de palavras por frase
+
+```{r}
+
+minhas_frases %>% str_split(" +") %>% map_int(length)
+
+```
+
+
+2.3) reportar o numero total de palavras (soma de palavras de todas as frase)
+
+```{r}
+
+minhas_frases %>% str_split(" +") %>% map_int(length) %>% sum
+
+```
+
+2.4) grafar as 6 palavras mais frequentes.
+
+
+```{r}
+
+df_nova_palavras <- tibble(palavra=minhas_frases %>% 
+                             str_split(" +") %>%
+                             unlist, indice=1:length(palavra)) %>%
+                             select(indice,palavra)
+
+
+df_nova_palavras %>%
+  mutate(palavra=str_to_lower(palavra)%>%iconv(to="ASCII//TRANSLIT")) %>%
+  count(palavra,sort=T) %>%
+  head(6) %>%
+  mutate(palavra=palavra %>% fct_inorder %>% fct_rev) %>%
+  ggplot(aes(palavra,n,fill=palavra)) +
+  geom_col() +
+  coord_flip() +
+  theme(legend.position="none")
+```
+
+
+2.5) reportar a palavra mais longa
+
+```{r}
+df_nova_palavras %>% 
+  mutate(Tamanho_palavra = str_length(palavra) ) %>%
+  arrange(desc(Tamanho_palavra)) %>%
+  head(1)
+  
+  
+
+```
+
+
+# Exercicios III
+
+3.1) Cortar livro só no conteúdo do capitulo 33 = XXXIII (após o título)
+3.2) Reportar grafico dos 8 termos (em minusculas, sem símbolos de pontuação) mais frequentes
+3.3) Gerar wordcloud das palavras neste capitulo
+
+
+
+
+
