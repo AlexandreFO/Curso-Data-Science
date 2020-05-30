@@ -1,0 +1,172 @@
+---
+title: "PUC MDT Data Science 2020 Aula 08 -- Exercicios"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(ggridges)
+library(plotly)
+```
+
+# Dataset 1: Carros
+
+```{r}
+df_carros <- read_csv("data/carros.csv")
+df_carros %>% glimpse
+```
+
+Fazer Gráficos:
+
+1.1 Barras da frequencia de tipo de combustivel
+
+```{r}
+df_carros %>%
+  mutate(fl=fl%>%fct_infreq()%>%fct_rev) %>%
+  ggplot(aes(x=fl,fill=fl)) +
+  geom_bar() +
+  coord_flip() +
+  labs(title="Tipo de Combustivel", x="Tipo de Combustivel", y="Quantidade")+
+  theme(legend.position = "none")
+```
+
+
+
+1.2 Que é o carro compacto com maior eficiencia de combustivel na estrada (hwy), e na cidade (cty)
+
+```{r}
+df_carros %>%
+  filter(class=="compact") %>%
+  arrange(desc(hwy)) %>%
+  head(1)
+  
+ 
+```
+
+```{r}
+df_carros %>%
+  filter(class=="compact") %>%
+  arrange(desc(cty)) %>%
+  head(1)
+ 
+```
+
+
+
+
+1.3 Grafico faceteado de eficiencia na cidade (cty) vs cilindrada (displ) faceteado por tipo de transmissao (trans)
+
+
+```{r}
+df_carros %>%
+  ggplot(aes(x = cty, y = displ,color=manufacturer)) + 
+  geom_point() + 
+  facet_wrap(~trans, nrow = 2) +
+  labs(title="Eficiencia na cidade (cty) vs cilindrada (displ)",
+       x="eficiencia",y="cilindrada")+
+  theme(legend.position = "none")
+```
+
+
+# Dataset 2: Gapminder
+
+```{r}
+df_gapminder <- read_csv("data/gapminder.csv")
+df_gapminder %>% glimpse
+```
+
+2.1 Mostrar num mesmo grafico a evolucao do PIB per capita da Argentina, Chile, e Paraguay por ano
+
+```{r}
+df_gapminder %>%
+  filter(country %in% c("Chile","Paraguay","Argentina")) %>%
+  ggplot(aes(x=year,y=gdpPercap,color=country)) +
+  geom_point() +
+  geom_line()
+```
+
+
+
+
+2.2 Grafar populacoes de cada continente vs ano. cada linha deve ter sua propria cor. Dica: preparar dados com group_by e summarize.
+
+
+```{r}
+df_gapminder %>%
+  group_by(continent,year)%>%
+  summarise(Total=sum(pop)) %>%
+  ggplot(aes(x=year,y=Total,color=continent)) +
+  geom_point() +
+  geom_line()
+```
+
+
+
+2.3 Fazer 2.1 e 2.2 iterativos com plotly
+
+
+```{r}
+p <- df_gapminder %>%
+  filter(country %in% c("Chile","Paraguay","Argentina")) %>%
+  ggplot(aes(x=year,y=gdpPercap,color=country)) +
+  geom_point() +
+  geom_line()
+
+p %>% ggplotly
+
+```
+
+
+
+```{r}
+p <- df_gapminder %>%
+  group_by(continent,year)%>%
+  summarise(Total=sum(pop)) %>%
+  ggplot(aes(x=year,y=Total/1000000,color=continent)) +
+  geom_point() +
+  geom_line()  +
+  labs(title="População do Continente por Ano",
+       x="Ano",y="Pop em Milhão")
+
+p %>% ggplotly()
+
+```
+
+
+
+```{r}
+p <- df_gapminder %>%
+  group_by(continent,year)%>%
+  summarise(Total=sum(pop)) %>%
+  ggplot(aes(x=year,y=Total/1000000,color=continent)) +
+  geom_point() +
+  geom_line()  +
+  scale_y_log10() +
+  labs(title="População do Continente por Ano",
+       x="Ano",y="Pop em Milhão")
+
+p %>% ggplotly()
+
+```
+
+
+
+
+# Dataset 3: Airbnb
+
+```{r}
+df_air_bnb <- read_csv("data/airbnb.csv")
+df_air_bnb %>% glimpse
+```
+
+3.1 Fazer histograma de preços só de apartamentos com escala horiz. logaritmica, com cor interior vermelha, e 20 bins.
+3.2 Fazer histograma de preços para os tres tipos de apartamento (com transparencia e escala horiz log) faceteado por cafe da manha (brk)
+3.3 Fazer um ridge plot para categoria "apt" com esc. horiz. log, com cada ridge correspondendo a cafe da manha (brk)
+
+# Dataset 4: salaries 
+
+4.0 Carregar a tabela "salaries.csv" no diretorio "data", criando `df_salaries`.
+
+4.1 Fazer boxplot de salarios vs sexo. nao usar escala logaritmica. colocar notch no boxplot, e colorir (fill) com o sexo.
+4.2 Grafico frequencial de barras dos ranks
+4.3 Fazer um diagrama de dispersao entre salario vs yrs.since.phd? existe alguma correlacao?

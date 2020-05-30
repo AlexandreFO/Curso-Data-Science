@@ -1,0 +1,320 @@
+---
+title: "PUC MDT Data Science 2020 Aula 08 -- Graficos"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(ggridges)
+library(plotly)
+```
+
+# Dataset 1: Carros
+
+```{r}
+df_carros <- read_csv("data/carros.csv")
+df_carros %>% glimpse
+```
+
+Dicionário de dados
+
+- Manufacturer: marca
+- model: modelo
+- displ: cilindrada (em litros)
+- year: ano de fabricação
+- cyl: número de cilindros
+- trans: tipo de câmbio
+- drv: tração:
+  - f = front-wheel (dianteira),
+  - r = rear wheel (traseira)
+  - 4 = (4x4)
+- cty: milhas por galão (cidade)
+- hwy: milhas por galão (estrada)
+- fl: tipo de combustível: 
+  - e: ethanol E85,
+  - d: diesel,
+  - r: regular,
+  - p: premium,
+  - c: natural gas
+- class: tipo de veículo
+
+Grafa marcas
+
+```{r}
+df_carros %>%
+  ggplot(aes(x=manufacturer)) +
+  geom_bar()
+```
+
+```{r}
+df_carros %>%
+  mutate(manufacturer=manufacturer%>%fct_infreq()%>%fct_rev) %>%
+  ggplot(aes(x=manufacturer,fill=manufacturer)) +
+  geom_bar() +
+  coord_flip() +
+  theme(legend.position = "none")
+```
+
+Scatter Plot milhas por galao vs cilindrada 
+
+```{r}
+df_carros %>%
+  ggplot(aes(x = displ, y = hwy)) +
+  geom_point() +
+  labs(x="cilindrada",y="milhas por galão")
+```
+
+Faceteamento por tipo de carro
+
+```{r}
+df_carros %>%
+  ggplot(aes(x = displ, y = hwy)) + 
+  geom_point() + 
+  facet_wrap(~class, nrow = 2) +
+  labs(x="cilindrada",y="milhas por galão")
+```
+
+
+```{r}
+df_carros %>%
+  ggplot(aes(x = displ, y = hwy, color = manufacturer)) + 
+  geom_point() + 
+  facet_wrap(~class, ncol = 2) +
+  labs(title="Faceamento dos graficos", x="cilindrada",y="milhas por galão")
+```
+
+
+# Dataset 2 - Gapminder
+
+```{r}
+df_gapminder <- read_csv("data/gapminder.csv")
+df_gapminder %>% glimpse
+```
+
+Dicionario de dados:
+
+- country: país
+- continent: continente
+- year: ano
+- lifeExp: expectativa de vida
+- pop: populacao
+- gdpPercap
+
+Mostra todos os países
+
+```{r}
+df_gapminder%>%count(country)
+```
+
+## Line graphs
+
+Plota populacao do Brasil vs ano
+
+```{r}
+df_gapminder %>%
+  filter(country=="Brazil") %>%
+  ggplot(aes(x=year,y=pop)) +
+  geom_point() +
+  geom_line()
+```
+
+Plota populacao do Brasil e Estados Unidos vs ano
+
+```{r}
+df_gapminder %>%
+  filter(country %in% c("Brazil","United States")) %>%
+  ggplot(aes(x=year,y=pop,color=country)) +
+  geom_point() +
+  geom_line()
+```
+
+## Dispersão
+
+Mostra relação entre PIB per capita e expectativa de vida no ano de 1952.
+
+```{r}
+df_gapminder %>%  
+  filter(year=="1952") %>%
+  ggplot(aes(x=gdpPercap, y=lifeExp)) +
+  geom_point() +
+  labs(x="PIB per capita",y="expectativa de vida (anos)")
+```
+
+Localizando o outlier de PIB
+
+```{r}
+df_gapminder %>% 
+  filter(year==1952 & gdpPercap>100000)
+```
+
+Remove o outlier
+
+```{r}
+df_gapminder %>% 
+  filter(year==1952 & gdpPercap<100000) %>%
+  ggplot(aes(x=gdpPercap, y=lifeExp)) +  
+  geom_point() +
+  labs(x="PIB per capita",y="expectativa de vida (anos)")
+```
+
+Mostra tendencia
+
+```{r}
+df_gapminder %>% 
+  filter(year==1952 & gdpPercap<100000) %>%
+  ggplot(aes(x=gdpPercap, y=lifeExp)) +  
+  geom_point() +
+  geom_smooth()
+```
+
+Colore os pontos por `continent`.
+
+```{r}
+df_gapminder %>% 
+  filter(year==1952 & gdpPercap<100000) %>%
+  ggplot(aes(x=gdpPercap, y=lifeExp,color=continent)) +  
+  geom_point() +
+  geom_smooth(aes(color=NA))
+```
+
+Fazer tamanho dos círculos proporcional à população do país (`pop`). Circulos transparentes.
+  
+```{r}
+df_gapminder %>% 
+  filter(year==1952 & gdpPercap<100000) %>%
+  ggplot(aes(x=gdpPercap, y=lifeExp,color=continent,size=pop)) +  
+  geom_point(alpha=.8)
+```
+
+Criar pop-ups interativos
+
+```{r}
+p <- df_gapminder %>% 
+    filter(year==1952 & gdpPercap<100000) %>%
+    arrange(pop) %>%
+    ggplot(aes(x=gdpPercap, y=lifeExp,
+             fill=continent,
+             size=pop)) +  
+      geom_point(alpha = 0.8, stroke = 0.3) +
+      scale_size(guide=F) +
+      theme_minimal()
+ggplotly(p)
+```
+
+# Dataset 3 - Airbnb
+
+```{r}
+df_air_bnb <- read_csv("data/airbnb.csv")
+df_air_bnb %>% glimpse
+```
+
+Dicionario de dados:
+
+- resid: um id da residencia
+- price: o preço de venda
+- categoria: tipo de residencia
+   - "apt": apartamento
+   - "house": casa
+   - "room": quarto
+- brk: inclui cafe da manha? (T/F)
+
+Histograma dos preços:
+  
+```{r}
+df_air_bnb %>%
+  ggplot(aes(price)) +
+  geom_histogram(fill="blue",color="black")
+```
+
+Preços são log-normais, colore, bota borda
+
+```{r}
+df_air_bnb %>%
+  ggplot(aes(price)) +
+  geom_histogram(fill="blue",color="black") +
+  scale_x_log10()
+```
+
+Altera o numero de bins
+
+```{r}
+df_air_bnb %>%
+  ggplot(aes(price)) +
+  geom_histogram(fill="blue",color="black",bins=10) +
+  scale_x_log10()
+```
+
+Gráfico de densidade
+
+```{r}
+df_air_bnb %>%
+  ggplot(aes(price)) +
+  geom_density(fill="red",color="black",alpha=.5) +
+  scale_x_log10()
+```
+  
+Gráfico de densidade por tipo
+
+```{r}
+df_air_bnb %>%
+  filter(categoria!="apt") %>%
+  ggplot(aes(price,fill=categoria)) +
+  geom_density(color="black",alpha=.5) +
+  scale_x_log10()
+```
+
+Ridge plot
+
+```{r}
+df_air_bnb %>%
+  ggplot(aes(x=price,y=categoria,fill=categoria)) +
+  geom_density_ridges(alpha=.5) +
+  scale_x_log10()
+```
+
+Boxplot de distribuição de preços
+
+```{r}
+df_air_bnb %>%
+  ggplot(aes(x=categoria,y=price,fill=categoria)) +
+  geom_boxplot() +
+  scale_y_log10()
+```
+
+Adiciona nuvem de amostras e "cintura" 
+
+```{r}
+df_air_bnb %>%
+  sample_frac(size=.1) %>%
+  ggplot(aes(x=categoria,y=price,fill=categoria)) +
+  geom_boxplot(notch=T) +
+  geom_jitter(color="black", width=.2, size=.2, alpha=.3) +
+  scale_y_log10()
+```
+
+Boxplot com plotly
+
+```{r}
+p <- df_air_bnb %>%
+  sample_frac(size=.1) %>%
+  ggplot(aes(x=categoria,y=price,fill=categoria)) +
+  geom_boxplot(notch=T) +
+  geom_jitter(color="black", width=.2, size=.2, alpha=.3) +
+  scale_y_log10()
+ggplotly(p)
+```
+
+Violin plot
+
+```{r}
+p <- df_air_bnb %>%
+  sample_frac(size=.1) %>%
+  ggplot(aes(x=categoria,y=price,fill=categoria)) +
+  geom_violin() +
+  geom_jitter(color="black", width=.2, size=.2, alpha=.3) +
+  scale_y_log10() +
+  theme(legend.position = "none")
+ggplotly(p)
+```
+
+This is the END
