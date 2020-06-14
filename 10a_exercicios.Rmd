@@ -1,0 +1,182 @@
+---
+title: "PUC MDT Data Science Aula 10 -- Exercicios"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(igraph)
+library(tidygraph)
+library(ggraph)
+```
+
+
+# Parte 01: emails
+
+```{r}
+df_emails <- read_csv("data/email_edges.csv",col_types = "iii")
+df_emails_users <- read_csv("data/email_nodes.csv")
+```
+
+## Processamento com tidyverse
+
+1) Quais os nomes dos 5 usuarios com mais emails enviados? (usar group_by, summarize, left_join)
+
+```{r}
+Cinco_mais_email_enviados <- df_emails %>%
+    left_join(df_emails_users,by=c(from="id")) %>%
+    group_by(name) %>%
+    summarise(Total_email=sum(emails)) %>%
+    #rename(Name_from=name) %>%
+    arrange(desc(Total_email)) %>%
+    head(5)
+```
+
+
+
+2) Para cada um dos 5 acima, quais os nomes de seus 3 principais destinatários? (usar group_by com duas colunas)
+
+```{r}
+    df_emails %>%
+    left_join(df_emails_users,by=c(from="id")) %>%
+    semi_join(Cinco_mais_email_enviados, by="name") %>%
+    group_by(name,to) %>%
+    arrange(desc(emails)) %>%
+    group_by(name) %>% 
+    top_n(3,emails) %>% 
+    arrange(name) %>% 
+    rename(name_from=name) %>%
+    left_join(df_emails_users %>% rename(name_to=name),by=c(to="id")) %>% 
+    select(name_from,name_to,emails)
+
+```
+
+
+
+3) Quais 5 usuários receberam o menor numero de emails?
+
+
+```{r}
+Cinco_mais_email_recebidos <- df_emails %>%
+    left_join(df_emails_users,by=c(to="id")) %>%
+    group_by(name) %>%
+    summarise(Total_email=sum(emails)) %>%
+    rename(Name_to=name) %>%
+    arrange(desc(Total_email)) %>%
+    head(5)
+```
+
+
+
+
+4) Quais usuários tem o maior número de destinatários únicos?
+
+
+```{r}
+df_emails %>%
+  group_by(from,to) %>%
+  summarise(emails) %>%
+  count(from) %>%
+  arrange(desc(n)) %>%
+  left_join(df_emails_users,by=c(from="id")) %>%
+  select(n,name,from) %>%
+  rename(Name_from=name) %>%
+  select(Name_from,n)
+
+```
+
+
+
+
+## Visualização
+
+1) Mostrar gráfico com bolinhas coloridas por 'cargo'
+
+
+Faz lookup para atribuir nomes dos funcionarios na ordem q os nós foram criados.
+
+```{r}
+df_lookup <- tibble(id=V(gr_emails)$name %>% as.integer) %>%
+  left_join(df_emails_users)
+df_lookup
+```
+
+Atribui caracteristicas dos usuarios aos vertices na ordem correta
+
+```{r}
+V(gr_emails)$nome <- df_lookup$name
+V(gr_emails)$sex <- df_lookup$sex
+V(gr_emails)$cargo <- df_lookup$cargo
+```
+
+
+```{r}
+gr_emails %>%
+  ggraph(layout = 'fr') + 
+  geom_edge_fan(aes(start_cap = label_rect(node1.name),
+                     end_cap = label_rect(node2.name)), 
+                 arrow = arrow(length = unit(4, 'mm'))) +
+  geom_node_point(aes(color=cargo),size=10) +
+  geom_node_text(aes(label = nome)) +
+  theme(legend.position = "none")
+```
+
+
+
+2) No rótulo de cada nó, colocar nome+cargo. por exemplo: "josé+gerente". dica: str_c(nome,"\n",cargo))
+
+
+
+```{r}
+gr_emails %>%
+  ggraph(layout = 'fr') + 
+  geom_edge_fan(aes(start_cap = label_rect(node1.name),
+                     end_cap = label_rect(node2.name)), 
+                 arrow = arrow(length = unit(4, 'mm'))) +
+  geom_node_point(aes(color=cargo),size=10) +
+  geom_node_text(aes(label = str_c(nome,"\n",cargo))) +
+  theme(legend.position = "none")
+```
+
+
+
+
+
+3) Experimentar com todos os 7 layouts, escolher o melhor.
+
+
+
+```{r}
+
+tipos = c("star", "circle", "grid", "sphere", "kk", "fr", "mds", "lgl")
+gr_emails %>%
+  ggraph(layout = tipos[7]) + 
+  geom_edge_fan(aes(start_cap = label_rect(node1.name),
+                     end_cap = label_rect(node2.name)), 
+                 arrow = arrow(length = unit(4, 'mm'))) +
+  geom_node_point(aes(color=cargo),size=10) +
+  geom_node_text(aes(label = str_c(nome,"\n",cargo))) +
+  theme(legend.position = "none")
+```
+
+
+
+
+# Parte 02: Enron
+
+```{r}
+df_enron <- read_csv("data/email_enron2.csv", col_types = "iii")
+gr_enron <- gr_enron <- df_enron %>% as_tbl_graph(directed=F)
+```
+
+1) Fazer ggplot com o numero de emails enviados pelos 5 usuarios com mais emails disparados
+2) Quais os 5 usuarios que mais receberam emails?
+3) adicionar a `gr_enron` atributo de grupo e de centralidade.
+4) quem é o nó com maior centralidade? e com menor?
+5) quantos grupos distintos há?
+6) plotar grafo da enron com bolinhas coloridas pelo grupo
